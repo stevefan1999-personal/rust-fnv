@@ -18,3 +18,7 @@ path = "lib.rs"
 [features]
 default = ["std"]
 std = []
+
+[dependencies]
+const-primes = "0.8.7"
+const-random = "0.1.18"

@@ -85,8 +85,14 @@ use std::default::Default;
 #[cfg(feature = "std")]
 use std::hash::{BuildHasherDefault, Hasher};
 
-const INITIAL_STATE: u64 = 0xcbf2_9ce4_8422_2325;
-const PRIME: u64 = 0x0100_0000_01b3;
+const INITIAL_STATE: u64 = const_random::const_random!(u64);
+const PRIME: u64 = const {
+    if let Some(prime) = const_primes::next_prime(const_random::const_random!(u64)) {
+        prime
+    } else {
+        0x0100_0000_01b3
+    }
+};
 
 /// An implementation of the Fowler–Noll–Vo hash function.
 ///
