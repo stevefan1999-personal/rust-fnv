@@ -1,3 +1,8 @@
+# Additional features
+
+This crate allow the user to supply their initial hash state, prime and attempt to provide a random state using const_random and const_primes.
+Very useful for alleviating the HashDoS problem when ahash is not available. 
+
 # rust-fnv
 
 An implementation of the [Fowler–Noll–Vo hash function][chongo].
