@@ -87,11 +87,12 @@ use std::hash::{BuildHasherDefault, Hasher};
 
 const INITIAL_STATE: u64 = const_random::const_random!(u64);
 const PRIME: u64 = const {
-    if let Some(prime) = const_primes::next_prime(const_random::const_random!(u64)) {
-        prime
-    } else {
-        0x0100_0000_01b3
+    let mut prime;
+    loop {
+        prime = const_primes::next_prime(const_random::const_random!(u64));
+        if prime.is_some() { break }
     }
+    prime.unwrap()
 };
 
 /// An implementation of the Fowler–Noll–Vo hash function.
@@ -99,41 +100,49 @@ const PRIME: u64 = const {
 /// See the [crate documentation](index.html) for more details.
 #[allow(missing_copy_implementations)]
 #[derive(Clone)]
-pub struct FnvHasher(u64);
+pub struct FnvHasher(u64, u64);
 
 impl Default for FnvHasher {
-    #[inline]
+    #[inline(always)]
     fn default() -> FnvHasher {
-        FnvHasher(INITIAL_STATE)
+        FnvHasher(INITIAL_STATE, PRIME)
     }
 }
 
 impl FnvHasher {
     /// Create an FNV hasher starting with a state corresponding
     /// to the hash `key`.
-    #[inline]
+    #[inline(always)]
     #[must_use]
     pub fn with_key(key: u64) -> FnvHasher {
-        FnvHasher(key)
+        FnvHasher(key, PRIME)
+    }
+
+    /// Create an FNV hasher starting with a state corresponding
+    /// to the hash `key` and `prime`.
+    #[inline(always)]
+    #[must_use]
+    pub fn with_key_prime(key: u64, prime: u64) -> FnvHasher {
+        FnvHasher(key, prime)
     }
 }
 
 impl Hasher for FnvHasher {
-    #[inline]
+    #[inline(always)]
     fn finish(&self) -> u64 {
         self.0
     }
 
-    #[inline]
+    #[inline(always)]
     fn write(&mut self, bytes: &[u8]) {
-        let FnvHasher(mut hash) = *self;
+        let FnvHasher(mut hash, prime) = *self;
 
         for byte in bytes {
             hash ^= u64::from(*byte);
-            hash = hash.wrapping_mul(PRIME);
+            hash = hash.wrapping_mul(prime);
         }
 
-        *self = FnvHasher(hash);
+        *self = FnvHasher(hash, prime);
     }
 }
 
@@ -149,7 +158,7 @@ pub type FnvHashMap<K, V> = HashMap<K, V, FnvBuildHasher>;
 pub type FnvHashSet<T> = HashSet<T, FnvBuildHasher>;
 
 /// Const version of FNV hash.
-#[inline]
+#[inline(always)]
 #[must_use]
 pub const fn fnv_hash(bytes: &[u8]) -> u64 {
     let mut hash = INITIAL_STATE;
@@ -157,6 +166,20 @@ pub const fn fnv_hash(bytes: &[u8]) -> u64 {
     while i < bytes.len() {
         hash ^= bytes[i] as u64;
         hash = hash.wrapping_mul(PRIME);
+        i += 1;
+    }
+    hash
+}
+
+/// Const version of FNV hash.
+#[inline(always)]
+#[must_use]
+pub const fn fnv_hash_with_state_and_prime(bytes: &[u8], initial_state: u64, prime: u64) -> u64 {
+    let mut hash = initial_state;
+    let mut i = 0;
+    while i < bytes.len() {
+        hash ^= bytes[i] as u64;
+        hash = hash.wrapping_mul(prime);
         i += 1;
     }
     hash
