@@ -93,41 +93,49 @@ const PRIME: u64 = 0x0100_0000_01b3;
 /// See the [crate documentation](index.html) for more details.
 #[allow(missing_copy_implementations)]
 #[derive(Clone)]
-pub struct FnvHasher(u64);
+pub struct FnvHasher(u64, u64);
 
 impl Default for FnvHasher {
-    #[inline]
+    #[inline(always)]
     fn default() -> FnvHasher {
-        FnvHasher(INITIAL_STATE)
+        FnvHasher(INITIAL_STATE, PRIME)
     }
 }
 
 impl FnvHasher {
     /// Create an FNV hasher starting with a state corresponding
     /// to the hash `key`.
-    #[inline]
+    #[inline(always)]
     #[must_use]
-    pub fn with_key(key: u64) -> FnvHasher {
-        FnvHasher(key)
+    pub const fn with_key(key: u64) -> FnvHasher {
+        FnvHasher(key, PRIME)
+    }
+
+    /// Create an FNV hasher starting with a state corresponding
+    /// to the hash `key` and `prime`.
+    #[inline(always)]
+    #[must_use]
+    pub const fn with_key_prime(key: u64, prime: u64) -> FnvHasher {
+        FnvHasher(key, prime)
     }
 }
 
 impl Hasher for FnvHasher {
-    #[inline]
+    #[inline(always)]
     fn finish(&self) -> u64 {
         self.0
     }
 
-    #[inline]
+    #[inline(always)]
     fn write(&mut self, bytes: &[u8]) {
-        let FnvHasher(mut hash) = *self;
+        let FnvHasher(mut hash, prime) = *self;
 
         for byte in bytes {
             hash ^= u64::from(*byte);
-            hash = hash.wrapping_mul(PRIME);
+            hash = hash.wrapping_mul(prime);
         }
 
-        *self = FnvHasher(hash);
+        *self = FnvHasher(hash, prime);
     }
 }
 
@@ -142,15 +150,28 @@ pub type FnvHashMap<K, V> = HashMap<K, V, FnvBuildHasher>;
 #[cfg(feature = "std")]
 pub type FnvHashSet<T> = HashSet<T, FnvBuildHasher>;
 
-/// Const version of FNV hash.
-#[inline]
+/// Const version of FNV hash with standard initial state constant and prime factor.
+#[inline(always)]
 #[must_use]
 pub const fn fnv_hash(bytes: &[u8]) -> u64 {
-    let mut hash = INITIAL_STATE;
+    // SAFETY: This set of initial state and prime factor is already proven
+    unsafe { fnv_hash_with_state_and_prime(bytes, INITIAL_STATE, PRIME) }
+}
+
+/// Const version of FNV hash that the user can supply any initial state and prime.
+/// Keep in mind this is marked unsafe because we cannot prove that the user is really using a prime
+#[inline(always)]
+#[must_use]
+pub const unsafe fn fnv_hash_with_state_and_prime(
+    bytes: &[u8],
+    initial_state: u64,
+    prime: u64,
+) -> u64 {
+    let mut hash = initial_state;
     let mut i = 0;
     while i < bytes.len() {
         hash ^= bytes[i] as u64;
-        hash = hash.wrapping_mul(PRIME);
+        hash = hash.wrapping_mul(prime);
         i += 1;
     }
     hash
