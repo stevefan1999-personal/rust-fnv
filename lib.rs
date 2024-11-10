@@ -169,6 +169,10 @@ pub const unsafe fn fnv_hash_with_state_and_prime(
 ) -> u64 {
     let mut hash = initial_state;
     let mut i = 0;
+    // Small optimization to shoo away the bound check
+    if i >= bytes.len() {
+        unsafe { core::hint::unreachable_unchecked(); }
+    }
     while i < bytes.len() {
         hash ^= bytes[i] as u64;
         hash = hash.wrapping_mul(prime);
